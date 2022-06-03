@@ -1,0 +1,116 @@
+global class PostToChatterAction {
+
+    @TestVisible
+    private static Boolean runInTest = false;
+
+    @InvocableMethod(Label='Post to Chatter')
+    global static List<ChatterPostResult> postToChatter(List<ChatterPost> chatterMessages) {
+
+        if (Test.isRunningTest() == true && runInTest == false) { return null; }
+
+        //Split Chatter Posts into their respective communities
+
+        Map<String, List<ConnectApi.FeedItemInput>> communityToChatterPosts = new Map<String, List<ConnectApi.FeedItemInput>>();
+        for (ChatterPost msg : chatterMessages) {
+            //Create a FeedItemInput from the Chatter Post message and Subject Id
+            ConnectApi.FeedItemInput feedItem =
+                    (ConnectApi.FeedItemInput) ConnectApiHelper.createFeedItemWithMentions(msg.subjectId, msg.message);
+
+            if (communityToChatterPosts.containsKey(msg.communityId)) {
+                communityToChatterPosts.get(msg.communityId).add(feedItem);
+            } else {
+                communityToChatterPosts.put(msg.communityId, new ConnectApi.FeedItemInput[]{
+                        feedItem
+                });
+            }
+        }
+
+        //Post the Chatter Messages to their respective communities and return the results of those postings
+        List<ConnectApi.BatchResult> batchResults = new List<ConnectApi.BatchResult>();
+        for (String communityId : communityToChatterPosts.keySet()) {
+            List<ConnectApi.BatchInput> batchInputs = new List<ConnectApi.BatchInput>();
+            for (ConnectApi.FeedItemInput input : communityToChatterPosts.get(communityId)) {
+                batchInputs.add(new ConnectApi.BatchInput(input));
+            }
+            batchResults.addAll(
+                    ConnectApi.ChatterFeeds.postFeedElementBatch(
+                            communityId,
+                            batchInputs));
+        }
+
+        //return the results of the postings
+        //NOTE: the results might get scrambled if the postings are being sent to different community Ids
+        //(i.e. the results won't follow the same order as inputted chatterMessages in that case)
+        List<ChatterPostResult> results = new List<ChatterPostResult>();
+        for (ConnectApi.BatchResult r : batchResults) {
+            ChatterPostResult cpr = new ChatterPostResult();
+            cpr.isSuccess = r.isSuccess();
+            cpr.errorMessage = r.getErrorMessage();
+            results.add(cpr);
+        }
+        return results;
+    }
+
+    global class ChatterPost {
+        @InvocableVariable(Label='Community Id' Description='Use either the ID of a community, "internal", or null.')
+        global String communityId;
+
+        @InvocableVariable(Required=true Label='Subject Id' Description='The parent of the post. Can be a user ID, a group ID, or a record ID.')
+        global Id subjectId;
+
+        @InvocableVariable(Required=true Label='Message' Description='Chatter Post message.')
+        global String message;
+    }
+
+    global class ChatterPostResult {
+        @InvocableVariable(Label='Is Success?' Description='TRUE if chatter post has been posted successfully, otherwise FALSE.')
+        global Boolean isSuccess;
+
+        @InvocableVariable(Label='Error Message' Description='Reason why the posting failed.')
+        global String errorMessage;
+    }
+}
+
+*********************************************************************************************************************************************************
+
+Test class
+*********************************************************************************************************************************************************
+
+
+@IsTest(SeeAllData=true)
+public class PostToChatterActionTest {
+
+    /**
+        When testing ConnectApi the test class has to have SeeAllData=true
+    */
+    @IsTest(SeeAllData=true)
+    static void testPostToChatterBatch(){
+        String hashtag = 'Yolo';
+        String text1 = ': ';
+        String link = 'http://salesforce.com';
+        String text2 = ', {005} ';
+        String mentionId = UserInfo.getUserId();
+        //String entityId = [SELECT Id FROM Account LIMIT 1].Id;
+        String text3 = ' test, ';
+        String text4 = '.';
+//        String text = '#' + hashtag + text1 + link + text2 + '{' + mentionId + '}' + text3 + '{' + entityId + '}' + text4;
+        String text = '#' + hashtag + text1 + link + text2 + '{' + mentionId + '}' + text3 + text4;
+
+        List<PostToChatterAction.ChatterPost> chatterPosts = new List<PostToChatterAction.ChatterPost>();
+        for(Integer i = 0; i < 200; i++){
+            PostToChatterAction.ChatterPost cp = new PostToChatterAction.ChatterPost();
+            cp.communityId = null;
+            cp.subjectId = UserInfo.getUserId();
+            cp.message = text;
+            chatterPosts.add(cp);
+        }
+
+        PostToChatterAction.runInTest = true;
+        List<PostToChatterAction.ChatterPostResult> results = PostToChatterAction.postToChatter(chatterPosts);
+        System.assertEquals(200, results.size());
+
+        for(PostToChatterAction.ChatterPostResult cpResult : results){
+            System.assertEquals(true, cpResult.isSuccess, '' + cpResult.errorMessage);
+        }
+    }
+}
