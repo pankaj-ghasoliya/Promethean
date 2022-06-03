@@ -1,0 +1,46 @@
+public class CaseSendResolvedEmail {
+    @InvocableMethod
+    public static void emailTemplateName(List<InputParameter> inputParameters) {
+        
+        InputParameter inputParameter = inputParameters[0];
+     	EmailTemplate emailTemplate = findOutEmailTemplate(inputParameter.templateName);
+        createEmailMessage(emailTemplate, inputParameter.caseId);
+        
+    }
+    
+    private static EmailTemplate findOutEmailTemplate(String templateName) {
+  
+        EmailTemplate emailTemplate = [SELECT Id, Name, Subject, Body FROM EmailTemplate WHERE Name =: templateName];
+        return emailTemplate;
+        
+    }
+    
+    private static void createEmailMessage(EmailTemplate emailTemplate, Id caseId) {
+        
+        Case caseRecord = [SELECT Id, CaseNumber, Default_Reply_From__c, Subject, Account_Name__c  FROM Case WHERE Id =: caseId];
+        EmailMessage emailMessage = new EmailMessage();
+        emailMessage.EmailTemplateId = emailTemplate.Id;
+        emailMessage.ParentId = caseId;
+        String subject = emailTemplate.Subject;
+        subject = subject.replace('{!Case.CaseNumber}', caseRecord.CaseNumber);
+		subject = subject.replace('{!Case.Subject}', caseRecord.Subject);
+        subject = subject.replace('{!Case.Account}', caseRecord.Account_Name__c);
+        emailMessage.Subject = subject;
+        String body = emailTemplate.Body;
+        body = body.replace('{!Case.CaseNumber}', caseRecord.CaseNumber);
+        body = body.replace('{!Case.Account}', caseRecord.Account_Name__c);
+        emailMessage.TextBody = body;
+        emailMessage.MessageDate = System.now();
+        emailMessage.FromAddress = caseRecord.Default_Reply_From__c ;
+        insert emailMessage;
+        
+    }
+    
+    public class InputParameter {
+        @InvocableVariable(required=true)
+        public String templateName;
+        
+        @InvocableVariable(required=true)
+        public Id caseId;
+    }
+}
