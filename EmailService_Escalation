@@ -1,0 +1,214 @@
+***********************************************************************************************************************************************************
+
+Main Class - EmailService_Escalation
+Test Class - EmailService_EscalationTest
+
+***********************************************************************************************************************************************************
+
+public class EmailService_Escalation implements Messaging.InboundEmailHandler {
+    
+    public Messaging.InboundEmailResult handleInboundEmail(Messaging.InboundEmail email, Messaging.InboundEnvelope envelope) {
+        
+        Messaging.InboundEmailResult result = new Messaging.InboundEmailResult();
+        
+        try{
+            Id escalationId;
+            String jiraRefNo = formateSubject(email.subject, email.fromAddress, email.plainTextBody, email.subject);
+            if(String.isNotBlank(jiraRefNo)){
+            	escalationId = findOutEscalation(jiraRefNo, email.fromAddress, email.plainTextBody, email.subject);    
+            }
+
+            system.debug(email.fromAddress);
+            system.debug('escalationId >. '+escalationId);
+            createEmailMessage(escalationId, email.plainTextBody, email.subject, email.fromAddress);
+
+            result.success = true;
+            
+        }catch(Exception e){
+            
+            result.success = false;
+            
+        }
+        
+        return result;
+    }
+    
+    public static String formateSubject(String emailSubject, String toAddress, String body, String subject){
+        
+        String jiraRefNo;
+        Boolean isSubjectRight = true;
+        if(String.isNotBlank(emailSubject)){
+            if(!emailSubject.contains('[JIRA] (')){
+            	sendEmail(toAddress, body, subject + ' - Incorrect Format for Subject');
+                isSubjectRight = false;
+            }
+            else if(emailSubject.contains('[JIRA] (') && !emailSubject.contains(') ENH - Whiteboard App - Option to add pages in addition to the infinite canvas')){
+                sendEmail(toAddress, body, subject + ' - Incorrect Format for Subject');
+                isSubjectRight = false;
+            }
+        }
+        if(String.isNotBlank(emailSubject) && isSubjectRight){
+            if(emailSubject.contains('[JIRA] (') && emailSubject.contains(') ENH - Whiteboard App - Option to add pages in addition to the infinite canvas')){
+                system.debug('yes');
+                jiraRefNo = emailSubject.substring(emailSubject.indexOf('[JIRA] (')+8, emailSubject.indexOf(') ENH - Whiteboard App - Option to add pages in addition to the infinite canvas'));
+            }            
+        }
+        if(String.isBlank(emailSubject)){
+            jiraRefNo = '';
+            sendEmail(toAddress, body, subject + '- Subject Can\'t be Blank');
+        }
+        return jiraRefNo;
+        
+    }
+    
+    public static Id findOutEscalation(String jiraRefNo, String toAddress, String body, String subject){
+        
+        List<Escalation__c> escalations = [SELECT Id, Name FROM Escalation__c WHERE Name =: jiraRefNo];
+        system.debug(escalations);
+        if(!escalations.isEmpty()){
+            return escalations[0].Id;            
+        }else{
+            sendEmail(toAddress, body, subject + ' - JIRA Ref not found');
+            return null;
+        }
+        
+    }
+    
+    public static void createEmailMessage(Id escalationId, String plainTextBody, String subject, String fromAddress) {
+        
+        System.debug('escalationId >> ' +escalationId);
+        System.debug('plainTextBody >> '+ plainTextBody);
+        System.debug('toAddresses >> '+ fromAddress);
+        
+        if(String.isNotBlank(escalationId) ){
+            EmailMessage emailMessage = new EmailMessage();
+            emailMessage.FromAddress = fromAddress;
+            emailMessage.RelatedToId = escalationId;
+            emailMessage.Subject = subject;
+            emailMessage.TextBody = plainTextBody;
+            emailMessage.MessageDate = system.now();
+            insert emailMessage; 
+            updateEscalationOwner(escalationId);
+        }
+        
+    }
+
+    public static void updateEscalationOwner(Id escalationId){
+        Group que =  [select Id from Group where Type = 'Queue' AND NAME = 'GEQ Escalations'];
+        Escalation__c escalation =  [select Id, Work_Item_Status__c from Escalation__c WHERE Id =: escalationId];
+        if(escalation.Work_Item_Status__c == 'Closed'){
+            Escalation__c esc = new Escalation__c();
+            esc.OwnerId = que.Id;
+            esc.Id = escalationId;
+            esc.Work_Item_Status__c  = 'Open';
+            update esc;
+        }
+        
+    }
+    
+    private static void sendEmail(String toAddress, String body, String subject){
+        
+        Messaging.SingleEmailMessage singleEmailMessage = new Messaging.SingleEmailMessage();
+        singleEmailMessage.toAddresses = new List<String>{toAddress};
+        singleEmailMessage.subject = subject;
+        singleEmailMessage.plainTextBody = body;
+        List<Messaging.SendEmailResult> results = MessagingHandler.sendEmail(new List<Messaging.SingleEmailMessage>{singleEmailMessage});
+        if (results[0].success) {
+            System.debug('The email sent successfully.');
+        } else {
+            System.debug('The email failed to send: '+ results[0].errors[0].message);
+        }
+        
+    }
+}
+
+
+
+***********************************************************************************************************************************************************
+
+Main Class - EmailService_Escalation
+Test Class - EmailService_EscalationTest
+
+***********************************************************************************************************************************************************
+
+
+
+@IsTest
+private class EmailService_EscalationTest {
+    
+    @TestSetup
+    static void setupData() { 
+        Escalation__c openEscalation = new Escalation__c();
+        openEscalation.Replacement_Provided__c = 'Yes';
+        openEscalation.Name = 'PWB-852';
+        openEscalation.Type__c = 'Escalation';
+        openEscalation.Bug_or_Design__c = 'Bug';
+        openEscalation.Replication_Steps__c = 'test';
+        openEscalation.Status__c = 'Open';
+        
+        insert openEscalation;
+    }
+    
+    @IsTest
+    static void handleInboundEmailTest() {
+        Escalation__c scalation = [SELECT Id, Name FROM Escalation__c];
+        Messaging.InboundEmail email = new Messaging.InboundEmail();
+        Messaging.InboundEnvelope envelope = new Messaging.InboundEnvelope();
+        
+        email.fromAddress = 'john.doe@prometheanworldtest.com';
+        email.plainTextBody = 'test';
+		email.subject = 'FW: [JIRA] (PWB-852) ENH - Whiteboard App - Option to add pages in addition to the infinite canvas';   
+        
+        Test.startTest();
+        
+        EmailService_Escalation instance = new EmailService_Escalation();
+        Messaging.InboundEmailResult result = instance.handleInboundEmail(email, envelope);
+        
+        Test.stopTest();
+        
+        System.assertEquals(true, result.success);
+        
+    }
+    
+    @IsTest
+    static void handleInboundEmailNegativeTest() {
+        Escalation__c scalation = [SELECT Id, Name FROM Escalation__c];
+        Messaging.InboundEmail email = new Messaging.InboundEmail();
+        Messaging.InboundEnvelope envelope = new Messaging.InboundEnvelope();
+        
+        email.fromAddress = 'john.doe@prometheanworldtest.com';
+        email.plainTextBody = 'test';
+		email.subject = 'PWB-852) ENH - Whiteboard App - Option to add pages in addition to the infinite canvas';   
+        
+        Test.startTest();
+        
+        EmailService_Escalation instance = new EmailService_Escalation();
+        Messaging.InboundEmailResult result = instance.handleInboundEmail(email, envelope);
+        
+        Test.stopTest();
+        
+       // System.assertEquals(true, result.success);
+        
+    }
+    
+    @IsTest
+    static void handleInboundEmailNegativeTest2() {
+        Escalation__c scalation = [SELECT Id, Name FROM Escalation__c];
+        Messaging.InboundEmail email = new Messaging.InboundEmail();
+        Messaging.InboundEnvelope envelope = new Messaging.InboundEnvelope();
+        
+        email.fromAddress = 'john.doe@prometheanworldtest.com';
+        email.plainTextBody = 'test';
+		email.subject = 'FW: [JIRA] (PWB-852) ENH - Whiteboard App - Option to';   
+        
+        Test.startTest();
+        
+        EmailService_Escalation instance = new EmailService_Escalation();
+        Messaging.InboundEmailResult result = instance.handleInboundEmail(email, envelope);
+        
+        Test.stopTest();
+        
+       // System.assertEquals(true, result.success);
+        
+    }
+}
