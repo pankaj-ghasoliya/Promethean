@@ -1,0 +1,911 @@
+******************************************************************************************************************************************************
+
+Main Class - SourceSupportWorkOrderUpdate
+Sub Class - MessagingHandler
+Sub Class - ContentFileAttacher
+Sub Class - File
+******************************************************************************************************************************************************
+public class SourceSupportWorkOrderUpdate implements Messaging.InboundEmailHandler {
+    
+    private class SourceSupportWorkOrderUpdateException extends Exception {}
+    
+    public Messaging.InboundEmailResult handleInboundEmail(Messaging.InboundEmail email, Messaging.InboundEnvelope envelope) {
+        Messaging.InboundEmailResult result = new Messaging.InboundEmailResult();
+        try{
+            //Calling formatEmailBody method to format Email body.
+            String workOrderId = formatEmailBody(email.plainTextBody, email.fromAddress);
+            
+            insertComponentsPartsUsed(email.plainTextBody, workOrderId, email.fromAddress);
+
+            // Calling checkAttachmentsInEmail method to check is email is Contains document?
+            if(String.isNotBlank(workOrderId)){
+                checkAttachmentsInEmail(email.binaryAttachments, workOrderId);
+            }
+            result.success = true;
+        }catch(Exception e){
+            result.success = false;
+        } 
+        return result;
+    }   
+    
+    /**
+     * @description method is used for get value from Email Body
+
+     * @param body  The email body
+     * @param toAddress an email address
+     *
+     * @return it will return a work order Id
+     */
+    private static String formatEmailBody(String body, String toAddress) {
+        String workOrderName = '';
+        String sourceSupportCaseNumber = '';
+        String plannedEngineerVisitDate = '';
+        String oSSPReasonForDelay = '';
+        String engineerCode = '';
+        String customerAcceptance = '';
+        String engineerName = '';
+        String engineerVisitDateTime = '';
+        String engineerComments = '';
+        String collectionNotes = '';
+        String repairedOrSwapped = '';
+        String correctedSerialNo = '';
+        Boolean isSyntaxCorrect = true;
+        String syntaxError;
+        if(String.isNotBlank(body)){
+            
+            if(isSyntaxCorrect && body.contains('<Work_Order_Name>') && !body.contains('</Work_Order_Name>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Work Order Name Parameter';
+            }
+            if(body.contains('<Work_Order_Name>') && body.contains('</Work_Order_Name>')){
+                workOrderName = body.substring(body.indexOf('<Work_Order_Name>')+17, body.indexOf('</Work_Order_Name>')).trim();
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Source_Support_Case_Number__c>') && !body.contains('</Source_Support_Case_Number__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Source Support Case Number Parameter';
+            }
+            if(body.contains('<Source_Support_Case_Number__c>') && body.contains('</Source_Support_Case_Number__c>')){
+                sourceSupportCaseNumber = body.substring(body.indexOf('<Source_Support_Case_Number__c>')+31, body.indexOf('</Source_Support_Case_Number__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Planned_Engineer_Visit_Date__c>') && !body.contains('</Planned_Engineer_Visit_Date__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Source Support Case Number Parameter';
+            }
+            if(body.contains('<Planned_Engineer_Visit_Date__c>') && body.contains('</Planned_Engineer_Visit_Date__c>')){
+                plannedEngineerVisitDate = body.substring(body.indexOf('<Planned_Engineer_Visit_Date__c>')+32, body.indexOf('</Planned_Engineer_Visit_Date__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<OSSP_Reason_for_Delay__c>') && !body.contains('</OSSP_Reason_for_Delay__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - OSSP Reason for Delay Parameter';
+            }
+            if(body.contains('<OSSP_Reason_for_Delay__c>') && body.contains('</OSSP_Reason_for_Delay__c>')){
+                oSSPReasonForDelay = body.substring(body.indexOf('<OSSP_Reason_for_Delay__c>')+26, body.indexOf('</OSSP_Reason_for_Delay__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Engineer_Code__c>') && !body.contains('</Engineer_Code__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Engineer Code Parameter';
+            }
+            if(body.contains('<Engineer_Code__c>') && body.contains('</Engineer_Code__c>')){
+                engineerCode = body.substring(body.indexOf('<Engineer_Code__c>')+18, body.indexOf('</Engineer_Code__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Customer_Acceptance__c>') && !body.contains('</Customer_Acceptance__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Customer Acceptance Parameter';
+            }
+            if(body.contains('<Customer_Acceptance__c>') && body.contains('</Customer_Acceptance__c>')){
+                customerAcceptance = body.substring(body.indexOf('<Customer_Acceptance__c>')+24, body.indexOf('</Customer_Acceptance__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Engineer_Name__c>') && !body.contains('</Engineer_Name__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Engineer Name Parameter';
+            }
+            if(body.contains('<Engineer_Name__c>') && body.contains('</Engineer_Name__c>')){
+                engineerName = body.substring(body.indexOf('<Engineer_Name__c>')+18, body.indexOf('</Engineer_Name__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Engineer_Visit_Date_Time__c>') && !body.contains('</Engineer_Visit_Date_Time__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Engineer Visit Date Time Parameter';
+            }
+            if(body.contains('<Engineer_Visit_Date_Time__c>') && body.contains('</Engineer_Visit_Date_Time__c>')){
+                engineerVisitDateTime = body.substring(body.indexOf('<Engineer_Visit_Date_Time__c>')+29, body.indexOf('</Engineer_Visit_Date_Time__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Engineer_Comments__c>') && !body.contains('</Engineer_Comments__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Engineer Comments Parameter';
+            }
+            if(body.contains('<Engineer_Comments__c>') && body.contains('</Engineer_Comments__c>')){
+                engineerComments = body.substring(body.indexOf('<Engineer_Comments__c>')+22, body.indexOf('</Engineer_Comments__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Collection_Notes__c>') && !body.contains('</Collection_Notes__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Collection Notes Parameter';
+            }
+            if(body.contains('<Collection_Notes__c>') && body.contains('</Collection_Notes__c>')){
+                collectionNotes = body.substring(body.indexOf('<Collection_Notes__c>')+21, body.indexOf('</Collection_Notes__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Repaired_or_Swapped__c>') && !body.contains('</Repaired_or_Swapped__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Repaired or Swapped Parameter';
+            }
+            if(body.contains('<Repaired_or_Swapped__c>') && body.contains('</Repaired_or_Swapped__c>')){
+                repairedOrSwapped = body.substring(body.indexOf('<Repaired_or_Swapped__c>')+24, body.indexOf('</Repaired_or_Swapped__c>'));
+            }
+            
+            if(isSyntaxCorrect && body.contains('<Corrected_Serial_No__c>') && !body.contains('</Corrected_Serial_No__c>')){
+                isSyntaxCorrect = false;
+                syntaxError = 'Incorrect Syntax - Corrected Serial No Parameter';
+            }            
+            if(body.contains('<Corrected_Serial_No__c>') && body.contains('</Corrected_Serial_No__c>')){
+                correctedSerialNo = body.substring(body.indexOf('<Corrected_Serial_No__c>')+24, body.indexOf('</Corrected_Serial_No__c>'));
+            }
+            
+        }else{
+            throw new SourceSupportWorkOrderUpdateException('Email Body is null...');
+        }
+        
+        if(!isSyntaxCorrect){
+            // send mail to the external user if syntax is wrong
+            sendEmail(toAddress, body, false, null, syntaxError);
+        }
+        
+        // Calling findWorkOrder method to find Work Order
+        String workOrderId;
+        if(isSyntaxCorrect){
+            workOrderId = findWorkOrder(workOrderName, toAddress, body);
+        }
+        
+        // Calling updateWorkOrderBasedOnEmail method to update Work Order
+        if(String.isNotBlank(workOrderId) && isSyntaxCorrect){
+            InputParameters input = new InputParameters();
+            input.workOrderId = workOrderId;
+            input.sourceSupportCaseNumber =sourceSupportCaseNumber;
+            input.plannedEngineerVisitDate = plannedEngineerVisitDate;
+            input.oSSPReasonForDelay = oSSPReasonForDelay;
+            input.engineerCode = engineerCode;
+            input.customerAcceptance = customerAcceptance;
+            input.engineerName = engineerName;
+            input.engineerVisitDateTime = engineerVisitDateTime;
+            input.engineerComments = engineerComments;
+            input.collectionNotes = collectionNotes;
+            input.repairedOrSwapped = repairedOrSwapped;
+            input.correctedSerialNo = correctedSerialNo;
+            updateWorkOrderBasedOnEmail(new List<InputParameters>{input}, toAddress, body);
+        }
+        System.debug('workOrderId >> '+workOrderId);
+
+        //insertComponentsPartsUsed(body, String.isNotBlank(workOrderId));
+
+        return isSyntaxCorrect ? workOrderId : null;
+    }
+    
+    /**
+     * @description get workOrder Record based on the Name
+     *
+     * @param  workOrderName The work order record name
+     * @param toAddress The email address
+     * @param body The email body
+     *
+     * @return the WorkOrder Id Based on Email Name
+     */
+    private static Id findWorkOrder(String workOrderName, String toAddress, String body) {
+        
+        List<Work_Order__c> workOrders = [SELECT Id, Name FROM Work_Order__c WHERE Name =: workOrderName];
+        if(workOrders.isEmpty()){
+            // send mail to the external user if work order not found
+            sendEmail(toAddress, body, true, null, null);
+        }
+        return workOrders.isEmpty() ? null : workOrders[0].Id;
+    }
+    
+    /**
+     * @description workOrder record based on Email Body.
+     *
+     * @param inputs local class
+     * @param toAddress The email address
+     * @param body  The body
+     *
+     */
+    private static void updateWorkOrderBasedOnEmail(List<InputParameters> inputs, String toAddress, String body){
+        if(!inputs.isEmpty()){
+            InputParameters input = inputs.get(0);
+            
+            Work_Order__c workOrder = [SELECT Id, Name FROM Work_Order__c WHERE Id =: input.workOrderId];
+            
+            if(String.isNotBlank(input.plannedEngineerVisitDate) && String.isNotEmpty(input.plannedEngineerVisitDate)){
+                if(input.plannedEngineerVisitDate.contains('T') || input.plannedEngineerVisitDate.contains('Z')){
+                    input.plannedEngineerVisitDate = input.plannedEngineerVisitDate.remove('Z');
+                    input.plannedEngineerVisitDate = input.plannedEngineerVisitDate.replace('T', ' ');
+                }
+                workOrder.Planned_Engineer_Visit_Date__c = Datetime.valueOf(input.plannedEngineerVisitDate);
+            }
+            if(String.isNotBlank(input.sourceSupportCaseNumber) && String.isNotEmpty(input.sourceSupportCaseNumber)){
+                workOrder.Source_Support_Case_Number__c = input.sourceSupportCaseNumber;
+            }
+            if(String.isNotBlank(input.oSSPReasonForDelay) && String.isNotEmpty(input.oSSPReasonForDelay)){
+                workOrder.OSSP_Reason_for_Delay__c = input.oSSPReasonForDelay;
+            }
+            if(String.isNotBlank(input.engineerCode) && String.isNotEmpty(input.engineerCode)){
+                workOrder.Engineer_Code__c = input.engineerCode;
+            }
+            if(String.isNotBlank(input.customerAcceptance) && String.isNotEmpty(input.customerAcceptance)){
+                workOrder.Customer_Acceptance__c = Boolean.valueOf(input.customerAcceptance);
+            }
+            if(String.isNotBlank(input.engineerName) && String.isNotEmpty(input.engineerName)){
+                workOrder.Engineer_Name__c = input.engineerName;
+            }
+            if(String.isNotBlank(input.engineerVisitDateTime) && String.isNotEmpty(input.engineerVisitDateTime)){
+                if(input.engineerVisitDateTime.contains('T') || input.engineerVisitDateTime.contains('Z')){
+                    input.engineerVisitDateTime = input.engineerVisitDateTime.remove('Z');
+                    input.engineerVisitDateTime = input.engineerVisitDateTime.replace('T', ' ');
+                }
+                workOrder.Engineer_Visit_Date_Time__c = Datetime.valueOf(input.engineerVisitDateTime);
+            }
+            if(String.isNotBlank(input.engineerComments) && String.isNotEmpty(input.engineerComments)){
+                workOrder.Engineer_Comments__c = input.engineerComments;
+            }
+            if(String.isNotBlank(input.collectionNotes) && String.isNotEmpty(input.collectionNotes)){
+                workOrder.Collection_Notes__c = input.collectionNotes;
+            }
+            if(String.isNotBlank(input.repairedOrSwapped) && String.isNotEmpty(input.repairedOrSwapped)){
+                workOrder.Repaired_or_Swapped__c = input.repairedOrSwapped;
+            }
+            if(String.isNotBlank(input.correctedSerialNo) && String.isNotEmpty(input.correctedSerialNo)){
+                workOrder.OSS_Corrected_Serial_No__c = input.correctedSerialNo;
+            }
+            try{
+                update workOrder;
+            }catch(System.DmlException  e){
+                //If update is unsuccessful the send mail to the user
+               // String message = e.getMessage();
+                sendEmail(toAddress, body, false, 'Yes', null);
+            }   
+        }
+    }
+    
+    /**
+     * @description send Mail to External User If Work Order Not Found.
+     *
+     * @param toAddress The email address
+     * @param body The email body
+     * @param isSyntaxCorrect Flag indicating there has been an error in the syntax
+     * @param val A custom value
+     * @param syntaxError The error for the syntax problem
+     *
+     */
+    private static void sendEmail(String toAddress, String body, Boolean isSyntaxCorrect, String val, String syntaxError){
+        Messaging.SingleEmailMessage singleEmailMessage = new Messaging.SingleEmailMessage();
+        singleEmailMessage.toAddresses = new List<String>{toAddress};
+        singleEmailMessage.subject = !isSyntaxCorrect && String.isBlank(val) ? 'Incorrect Email Body '+syntaxError : 'Work Order Not Found';
+        if(!isSyntaxCorrect && String.isNotBlank(val)){
+            singleEmailMessage.subject = 'Bad value - We couldn\'t update work order';
+        }
+        singleEmailMessage.plainTextBody = body;
+        List<Messaging.SendEmailResult> results = MessagingHandler.sendEmail(new List<Messaging.SingleEmailMessage>{singleEmailMessage});
+        if (results[0].success) {
+            System.debug('The email sent successfully.');
+        } else {
+            System.debug('The email failed to send: '+ results[0].errors[0].message);
+        }
+    }
+    
+    /**
+     * @description if email have attachments then this method will invoke.
+     *
+     * @param binaryAttachments Attachments collected from the inbound email
+     * @param workOrderId The work order id
+     *
+     */
+    private static void checkAttachmentsInEmail(List<Messaging.InboundEmail.binaryAttachment> binaryAttachments, String workOrderId) {
+        if(binaryAttachments.isEmpty()) return;
+
+        List<File> files = new List<File>();
+        for(Messaging.InboundEmail.binaryAttachment binaryAttachment : binaryAttachments){
+            File file = new File(binaryAttachment.fileName, binaryAttachment.body, workOrderId);
+            files.add(file);
+        }
+        Set<Id> documentIds = ContentFileAttacher.AttachFiles(files);
+        System.debug('documentIds >> '+documentIds);
+    }
+
+
+    public static void insertComponentsPartsUsed(String body, Id workOrderId, String toAddress){
+        
+        if(String.isNotBlank(body)){
+            
+            Boolean isSyntaxCorrect = true;
+            if(isSyntaxCorrect && body.contains('<Confirmed_Replacement_Components>') && !body.contains('</Confirmed_Replacement_Components>')){
+                isSyntaxCorrect = false;
+                sendEmail(toAddress, body, false, null, 'Confirmed_Replacement_Components');
+            }   
+            
+            if(isSyntaxCorrect && body.contains('<Confirmed_Replacement_Components>') && body.contains('</Confirmed_Replacement_Components>')){
+                String confirmedReplacementComponentsBody = body.substring(body.indexOf('<Confirmed_Replacement_Components>')+34, body.indexOf('</Confirmed_Replacement_Components>'));
+                
+                List<String> splitedBody;
+                Boolean insideSyntaxError = true;
+                
+                if(insideSyntaxError && confirmedReplacementComponentsBody.contains('<Confirmed_Replacement_Component>') && !confirmedReplacementComponentsBody.contains('</Confirmed_Replacement_Component>')){
+                    system.debug('Confirmed_Replacement_Component');
+                    sendEmail(toAddress, body, false, null, 'Confirmed Replacement Component');
+                    insideSyntaxError = false;
+                }
+                
+                if(insideSyntaxError && confirmedReplacementComponentsBody.contains('</Confirmed_Replacement_Component>')){
+                    splitedBody = confirmedReplacementComponentsBody.split('</Confirmed_Replacement_Component>');
+                }
+                
+                List<String> bodyList = new List<String>();
+                
+                for(String subBody : splitedBody){
+                    if(subBody.contains('<Confirmed_Replacement_Component>')){
+                        bodyList.add(subBody.remove('<Confirmed_Replacement_Component>'));
+                    }
+                }
+                
+                Map<String, ConfirmedReplacementComponent> confirmedReplacementComponentByProductCodeMap = new Map<String, ConfirmedReplacementComponent>();
+                
+                String errorBodySyntax1;
+                String errorBodySyntax2;
+                String errorBodySyntax3;
+                
+                for(String mainBody : bodyList){
+                    ConfirmedReplacementComponent confirmedReplacementComponent = new ConfirmedReplacementComponent();
+                    String productCode;
+                    if(mainBody.contains('<Confirmed_Replacement_Component_Used>') && !mainBody.contains('</Confirmed_Replacement_Component_Used>')){
+                        errorBodySyntax1 = 'Confirmed_Replacement_Component_Used';
+                    }
+                    if(String.isBlank(errorBodySyntax1) && mainBody.contains('<Confirmed_Replacement_Component_Used>') && mainBody.contains('</Confirmed_Replacement_Component_Used>')){
+                        productCode = mainBody.substring(mainBody.indexOf('<Confirmed_Replacement_Component_Used>')+38, mainBody.indexOf('</Confirmed_Replacement_Component_Used>')).trim();
+                        confirmedReplacementComponent.confirmedReplacementComponentUsed = productCode;
+                    }
+                    
+                    if(mainBody.contains('<Confirmed_Replacement_Component_Used_Quantity>') && !mainBody.contains('</Confirmed_Replacement_Component_Used_Quantity>')){
+                        errorBodySyntax2 = 'Confirmed_Replacement_Component_Used_Quantity';
+                    }
+                    if(String.isBlank(errorBodySyntax2) && mainBody.contains('<Confirmed_Replacement_Component_Used_Quantity>') && mainBody.contains('</Confirmed_Replacement_Component_Used_Quantity>')){
+                        confirmedReplacementComponent.confirmedReplacementComponentUsedQuantity = mainBody.substring(mainBody.indexOf('<Confirmed_Replacement_Component_Used_Quantity>')+47, mainBody.indexOf('</Confirmed_Replacement_Component_Used_Quantity>')).trim();
+                        
+                    }
+                    
+                    if(mainBody.contains('<Confirmed_Replacement_Component_Used_Serial_Number>') && !mainBody.contains('</Confirmed_Replacement_Component_Used_Serial_Number>')){
+                        errorBodySyntax3 = 'Confirmed_Replacement_Component_Used_Serial_Number';
+                    }
+                    if(String.isBlank(errorBodySyntax3) && mainBody.contains('<Confirmed_Replacement_Component_Used_Serial_Number>') && mainBody.contains('</Confirmed_Replacement_Component_Used_Serial_Number>')){
+                        confirmedReplacementComponent.confirmedReplacementComponentUsedSerialNumber = mainBody.substring(mainBody.indexOf('<Confirmed_Replacement_Component_Used_Serial_Number>')+52, mainBody.indexOf('</Confirmed_Replacement_Component_Used_Serial_Number>')).trim();
+                    }
+                    
+                    confirmedReplacementComponentByProductCodeMap.put(productCode ,confirmedReplacementComponent);
+                }
+                
+                if(String.isNotBlank(errorBodySyntax1) || String.isNotBlank(errorBodySyntax2) || String.isNotBlank(errorBodySyntax3)){
+                    if(String.isNotBlank(errorBodySyntax1)){
+                        sendEmail(toAddress, body, false, null, errorBodySyntax1);    
+                    }else if(String.isNotBlank(errorBodySyntax2)){
+                        sendEmail(toAddress, body, false, null, errorBodySyntax2);
+                    }else if(String.isNotBlank(errorBodySyntax3)){
+                        sendEmail(toAddress, body, false, null, errorBodySyntax3);
+                    }
+                    
+                }
+                
+                List<Product2> products = [SELECT Id, Name, ProductCode FROM Product2 WHERE ProductCode IN :confirmedReplacementComponentByProductCodeMap.keySet()];
+                
+                List<String> productCodes = new List<String>();
+                for(Product2 product : products){
+                    productCodes.add(product.ProductCode);
+                }
+                
+                if(String.isBlank(errorBodySyntax1) && String.isBlank(errorBodySyntax2) && String.isBlank(errorBodySyntax3)){
+                    Boolean goodToInsert = true;
+                    List<Components_Parts_Used__c> componentsPartsUseds = new List<Components_Parts_Used__c>();
+                    
+                    for(String productCode : confirmedReplacementComponentByProductCodeMap.keySet()){
+                        if(!productCodes.contains(productCode)){
+                            system.debug('send mail');
+                            goodToInsert = false;
+                            sendEmail(toAddress, body, false, null, 'Product #'+ ProductCode +' not found');   
+                        }
+                    }
+                    
+                    for(Product2 product : products){
+                        Components_Parts_Used__c componentsPartsUsed = new Components_Parts_Used__c();
+                        if(confirmedReplacementComponentByProductCodeMap.get(product.ProductCode).confirmedReplacementComponentUsed == product.ProductCode){
+                            componentsPartsUsed.Part_Component_Used__c = product.Id;
+                            componentsPartsUsed.Quantity_Used__c = confirmedReplacementComponentByProductCodeMap.get(product.ProductCode).confirmedReplacementComponentUsedQuantity;
+                            componentsPartsUsed.Serial_Number__c = confirmedReplacementComponentByProductCodeMap.get(product.ProductCode).confirmedReplacementComponentUsedSerialNumber;
+                            componentsPartsUsed.Work_Order__c = workOrderId;
+                        }
+                        componentsPartsUseds.add(componentsPartsUsed);
+                    }
+                    
+                    if(!componentsPartsUseds.isEmpty() && goodToInsert){
+                        insert componentsPartsUseds;
+                    }
+                }
+                
+            }
+        }
+        
+    }
+    
+
+    public class ConfirmedReplacementComponent{
+        public String confirmedReplacementComponentUsed;
+        public String confirmedReplacementComponentUsedQuantity;
+        public String confirmedReplacementComponentUsedSerialNumber;
+    }
+    
+    /**
+     * Wrapper class for Parameters 
+     */
+    public class InputParameters{
+        public String workOrderId;
+        public String sourceSupportCaseNumber;
+        public String plannedEngineerVisitDate;
+        public String oSSPReasonForDelay;
+        public String engineerCode;
+        public String customerAcceptance;
+        public String engineerName;
+        public String engineerVisitDateTime;
+        public String engineerComments;
+        public String collectionNotes;
+        public String repairedOrSwapped;
+        public String correctedSerialNo;
+    }
+}
+
+
+******************************************************************************************************************************************************
+
+Main Class - MessagingHandler
+
+******************************************************************************************************************************************************
+
+global without sharing class MessagingHandler {
+    global static Messaging.SendEmailResult[] sendEmail(Messaging.SingleEmailMessage[] messages) {
+        Messaging.SendEmailResult[] results;
+        Integer emailCount = 0;
+
+        /*
+        Count number of emails that will be sent.  If toAddresses is null
+        that means we're sending to the whoId, which is one person, so add one.
+        */
+        for (Messaging.SingleEmailMessage message : messages) {
+            List<String> emails = message.getToAddresses();
+            if (emails != null) {
+                emailCount += emails.size();
+            } else {
+                emailCount++;
+            }
+        }
+
+        try {
+            Messaging.reserveSingleEmailCapacity(emailCount);
+            results = Messaging.sendEmail(messages);
+        } catch (System.NoAccessException e) {
+            // If tests are running then silently let this error and log it in the debug logs.
+            // This was added to stop tests from failing on Sandbox when emails were disabled.
+            // If the send email fails for any other reason, then the error will be thrown in the usual fashion.
+            if (Test.isRunningTest() == true) {
+                System.debug(LoggingLevel.WARN, e.getMessage());
+            } else {
+                //throw e;
+            }
+        }
+        return results;
+    }
+
+    /**
+     * 	Sends an exception email to the developers without a custom message
+     *
+     * 	@return The send email result.
+     */
+    global static Messaging.SendEmailResult[] sendDeveloperEmail(Exception ex) {
+        return MessagingHandler.sendDeveloperEmail(ex, null);
+    }
+
+    /**
+     * 	Sends an exception email to the developers with a custom message
+     *
+     * 	@return the send email result
+     */
+    global static Messaging.SendEmailResult[] sendDeveloperEmail(Exception ex, String customMessage) {
+        Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+        List<String> emailAddresses = new List<String>();
+
+        // If no users or email are specified in the apex email notification object then send an email
+        // to all system administrators notifying this.
+        if (MessagingHandler.apexEmailNotifications == null || MessagingHandler.apexEmailNotifications.isEmpty() == true) {
+            for (User user : systemAdministrators) {
+                emailAddresses.add(user.Id);
+            }
+            mail.setSubject('No users specified in ApexEmailNotification');
+            mail.setToAddresses(emailAddresses);
+            mail.setHtmlBody('Go to apexpages/setup/apexExceptionEmail.apexp to setup ApexEmailNotification \n\n' + formatDeveloperEmailBody(ex, customMessage));
+            mail.setPlainTextBody('Go to apexpages/setup/apexExceptionEmail.apexp to setup ApexEmailNotification \n\n' + formatDeveloperEmailBody(ex, customMessage));
+            return MessagingHandler.sendEmail(new List<Messaging.SingleEmailMessage>{
+                    mail
+            });
+        }
+
+        // Collect the users or email address specified in the Apex Email Notification object.
+        for (ApexEmailNotification apexEmail : apexEmailNotifications) {
+            if (String.isNotBlank(apexEmail.UserId) == true) {
+                emailAddresses.add(apexEmail.UserId);
+            } else if (String.isNotBlank(apexEmail.Email) == true) {
+                emailAddresses.add(apexEmail.Email);
+            }
+        }
+
+        // send email message with attachment
+        mail.setSubject(ex.getTypeName());
+        mail.setToAddresses(emailAddresses);
+        mail.setHtmlBody(formatDeveloperEmailBody(ex, customMessage));
+        mail.setPlainTextBody(formatDeveloperEmailBody(ex, customMessage));
+        return MessagingHandler.sendEmail(new List<Messaging.SingleEmailMessage>{
+                mail
+        });
+    }
+
+    /**
+     * @param subject The email subject
+     * @param information the object to serialize as the email body
+     *
+     * @return Messaging.SendEmailResult[]
+     */
+    global static Messaging.SendEmailResult[] sendDeveloperEmail(String subject, Object information) {
+        Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+        List<String> emailAddresses = new List<String>();
+
+        // If no users or email are specified in the apex email notification object then send an email
+        // to all system administrators notifying this.
+        if (MessagingHandler.apexEmailNotifications == null || MessagingHandler.apexEmailNotifications.isEmpty() == true) {
+            for (User user : systemAdministrators) {
+                emailAddresses.add(user.Id);
+            }
+            mail.setSubject('No users specified in ApexEmailNotification');
+            mail.setToAddresses(emailAddresses);
+            mail.setHtmlBody('Go to apexpages/setup/apexExceptionEmail.apexp to setup ApexEmailNotification \n\n' + JSON.serializePretty(information));
+            mail.setPlainTextBody('Go to apexpages/setup/apexExceptionEmail.apexp to setup ApexEmailNotification \n\n' + JSON.serializePretty(information));
+            return MessagingHandler.sendEmail(new List<Messaging.SingleEmailMessage>{
+                    mail
+            });
+        }
+
+        // Collect the users or email address specified in the Apex Email Notification object.
+        for (ApexEmailNotification apexEmail : apexEmailNotifications) {
+            if (String.isNotBlank(apexEmail.UserId) == true) {
+                emailAddresses.add(apexEmail.UserId);
+            } else if (String.isNotBlank(apexEmail.Email) == true) {
+                emailAddresses.add(apexEmail.Email);
+            }
+        }
+
+        // send email message with attachment
+        mail.setSubject(subject);
+        mail.setToAddresses(emailAddresses);
+        mail.setHtmlBody(JSON.serializePretty(information));
+        mail.setPlainTextBody(JSON.serializePretty(information));
+        return MessagingHandler.sendEmail(new List<Messaging.SingleEmailMessage>{
+                mail
+        });
+    }
+
+    global static Messaging.SendEmailResult[] sendToHelpdesk(String subject, Object information) {
+        // if scope is in a sandbox just send a developer email instead
+        if (UserInfo.getOrganizationId() != '00D3000000002ZtEAI' && Test.isRunningTest() == false) {
+            return sendDeveloperEmail(subject, information);
+        }
+
+        Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+        mail.setSubject(subject);
+        mail.setToAddresses(new List<String> { 'ithelpdesk@prometheanworld.com' });
+        mail.setHtmlBody(JSON.serializePretty(information));
+        mail.setPlainTextBody(JSON.serializePretty(information));
+        return MessagingHandler.sendEmail(new List<Messaging.SingleEmailMessage>{
+                mail
+        });
+    }
+
+    /**
+     * 	Query up to 100 ApexEmailNotification records into a static property.
+     */
+    @TestVisible
+    private static List<ApexEmailNotification> apexEmailNotifications {
+        get {
+            if (apexEmailNotifications == null) {
+                // 100 us the maximum number of email address you can set in setToAddresses()
+                apexEmailNotifications = [SELECT Id, Email, UserId FROM ApexEmailNotification LIMIT 100];
+            }
+            return apexEmailNotifications;
+        }
+        set;
+    }
+
+    /**
+     *	Query up to 100 System Administrator users into a static property.
+     */
+    private static List<User> systemAdministrators {
+        get {
+            if (systemAdministrators == null) {
+                // 100 us the maximum number of email address you can set in setToAddresses()
+                systemAdministrators = [SELECT Id FROM User WHERE Profile.Name = 'System Administrator' LIMIT 100];
+            }
+            return systemAdministrators;
+        }
+        set;
+    }
+
+    /**
+     * 	Returns the formatted text for the email body.
+     *
+     * 	@return String for the developer email body.
+     */
+    private static String formatDeveloperEmailBody(Exception e, String customMessage) {
+        return customMessage == null ?
+                String.format('{0}\\n\\n{1}', new List<String>{
+                        e.getMessage(), e.getStackTraceString()
+                }) :
+                String.format('{0}\\n\\n{1}\\n\\n{2}', new List<String>{
+                        e.getMessage(), e.getStackTraceString(), customMessage
+                });
+    }
+}
+
+******************************************************************************************************************************************************
+
+Main Class - ContentFileAttacher
+
+******************************************************************************************************************************************************
+
+/**
+ * Simplify and DRYify the creation of Files (Replacement for attachments).
+ */
+global without sharing class ContentFileAttacher {
+    /**
+     * Attach a single File to one or many records
+     */
+
+    webService static void AttachFile(String fileName, Blob fileBody, Id parentId){
+        File file = new File(fileName, fileBody, parentId);
+        AttachFiles(new List<File>{file});
+    }
+
+    global static void AttachFile(File file) {
+        if (file == null) return;
+        AttachFiles(new List<File>{
+                file
+        });
+    }
+
+    /**
+     * Attach many different files to one or many parents
+     * @return return the ContentVersion Ids for the files.
+     */
+    global static Set<Id> AttachFiles(List<File> files) {
+        Set<Id> contentVersionIds = new Set<Id>();
+        for(ContentVersion version : AttachFilesContentVersions(files)){
+            contentVersionIds.add(version.Id);
+        }
+        return contentVersionIds;
+    }
+
+    global static List<ContentVersion> AttachFilesContentVersions(List<File> files) {
+
+        if (files == null) return new List<ContentVersion>();
+        Map<File, ContentVersion> fileToContentVersion = new Map<File, ContentVersion>();
+        List<ContentDocumentLink> documentLinks = new List<ContentDocumentLink>();
+        Set<Id> contentVersionIds = new Set<Id>();
+
+        for (File file : files) {
+            // for creating a file with no FirstPublishLocationId.
+            if (file.parentIds == null) {
+                fileToContentVersion.put(file, createContentVersion(file.name, file.body, file.description, file.contentLocation, null));
+                continue;
+            }
+            for (Id parentId : file.parentIds) {
+                fileToContentVersion.put(file, createContentVersion(file.name, file.body, file.description, file.contentLocation, parentId));
+            }
+        }
+
+        insert fileToContentVersion.values();
+        return fileToContentVersion.values();
+    }
+
+    /*
+    * create the content (file).  If the body is null, which it could be if we're making a copy of an email with an empty body for example,
+    * convert to an empty string so it doesn't die
+    * */
+    global static ContentVersion createContentVersion(String fileName, Blob fileBody, String description, String contentLocation, Id parentId){
+        ContentVersion content = new ContentVersion();
+        
+        content.PathOnClient = fileName;
+        content.Title = fileName;
+        content.VersionData = (fileBody == null || String.isBlank(EncodingUtil.base64Encode(fileBody)) ? Blob.valueOf(' ') : fileBody);
+        content.Description = description;
+        content.ContentLocation = contentLocation;
+        content.FirstPublishLocationId = parentId;
+
+        return content;
+    }
+
+}
+
+
+******************************************************************************************************************************************************
+
+Main Class - File
+
+******************************************************************************************************************************************************
+
+/**
+ * A wrapper class for a File - Attachment's replacement.
+ * Create a file to link to either a single or many parents depending on which constructor you call
+ * then pass it to ContentFileAttacher.AttachFile
+ */
+global without sharing class File{
+    public Blob body {get;set;}
+    public String name {get;set;}
+    public List<Id> parentIds {get;set;}
+    public String description {get;set;}
+    public String contentLocation {get;set;}
+    public String shareType {get;set;}
+    public String visibility {get;set;}
+    public Id externalDataSourceId {get;set;}
+    
+    //replicate fields commonly used on Attachments
+    public Id Id {get;set;}
+    public String createdByName {get;set;}
+    public DateTime createdDate {get;set;}
+    public DateTime lastModifiedDate {get;set;}
+    public Integer bodyLength {get;set;}
+    public String lastModifiedByName {get;set;}
+    
+    /**
+     * S — Document is located within Salesforce
+     * E — Document is located outside of Salesforce
+     * L — Document is located on a social network and accessed via Social Customer Service
+     */
+    global ENUM ContentLocation {SALESFORCE, EXTERNAL, SOCIALNETWORK}
+    
+    /**
+     * V — Viewer permission. The user can explicitly view but not edit the shared file.
+     * C — Collaborator permission. The user can explicitly view and edit the shared file.
+     * I — Inferred permission. The user’s permission is determined by the related record.
+     *   - For shares with a library, this is defined by the permissions the user has in that library.
+     */
+    global ENUM ShareType {READ, READWRITE, INHERIT}
+    
+    /**
+     * The file is available...
+     * AllUsers — to all users who have permission to see the file.
+     * InternalUsers — only to internal users who have permission to see the file.
+     * SharedUsers — to all users who can see the feed to which the file is posted.
+     *             - only for files shared with users
+     *             - only when an org has private org-wide sharing on by default
+     */
+    global ENUM Visibility {
+        ALL, INTERNAL, SHARED
+    }
+
+    /**
+     * Create a blank file to populate later
+     */
+    public File() {
+        createFile(null, null, null, null, null, null, null, null);
+    }
+
+    /**
+     * Create a file with default enum values and no parent
+     */
+    public File(String fileName, Blob fileBody) {
+        createFile(fileName, fileBody, null, null, null, null, null, null);
+    }
+
+    /**
+     * Create a file with default enum values and no description
+     */
+    public File(String fileName, Blob fileBody, Id parentId) {
+        createFile(fileName, fileBody, new List<Id>{
+                parentId
+        }, null, null, null, null, null);
+    }
+
+    /**
+     * Create a file with default enum values and a description
+     */
+    public File(String fileName, Blob fileBody, Id parentId, String description){
+        createFile(fileName, fileBody, new List<Id>{parentId}, description, null, null, null, null);
+    }
+    
+    /**
+     * Create a file with custom enum values and a description
+     */
+    public File(String fileName, Blob fileBody, Id parentId, String description, ContentLocation contentLocation, ShareType shareType, Visibility visibility, Id externalDataSourceId){
+        createFile(fileName, fileBody, new List<Id>{parentId}, description, contentLocation, shareType, visibility, externalDataSourceId);
+    }
+    
+    /**
+     * Create a file with default enum values and no description which we'll attach to many parent records
+     */
+    public File(String fileName, Blob fileBody, List<Id> parentIds){
+        createFile(fileName, fileBody, parentIds, null, null, null, null, null);
+    }
+    
+    /**
+     * Create a file with default enum values and a description which we'll attach to many parent records
+     */
+    public File(String fileName, Blob fileBody, List<Id> parentIds, String description){
+        createFile(fileName, fileBody, parentIds, description, null, null, null, null);
+    }
+    
+    /**
+     * Create a file with custom enum values and a description which we'll attach to many parent records
+     */
+    public File(String fileName, Blob fileBody, List<Id> parentIds, String description, ContentLocation contentLocation, ShareType shareType, Visibility visibility, Id externalDataSourceId){
+        createFile(fileName, fileBody, parentIds, description, contentLocation, shareType, visibility, externalDataSourceId);
+    }
+    
+    private void createFile(String fileName, Blob fileBody, List<Id> parentIds, String description, ContentLocation contentLocation, ShareType shareType, Visibility visibility, Id externalDataSourceId){
+        this.body = fileBody;
+        this.name = fileName;
+        this.parentIds = parentIds;
+        this.description = description;
+        
+        switch on ShareType {
+            when READ {
+                this.shareType = 'V';
+            }
+            when READWRITE {
+                this.shareType = 'C';
+            }
+            when INHERIT {
+                this.shareType = 'I';
+            }
+            when else {
+                this.shareType = 'I';
+            }
+        }
+        
+        switch on Visibility {
+            when ALL {
+                this.visibility = 'AllUsers';
+            }
+            when INTERNAL {
+                this.visibility = 'InternalUsers';
+            }
+            when SHARED {
+                this.visibility = 'SharedUsers';
+            }
+            when else {
+                this.visibility = 'InternalUsers';
+            }
+        }
+        
+        switch on contentLocation {
+            when SALESFORCE {
+                this.contentLocation = 'S';
+            }
+            when EXTERNAL {
+                this.contentLocation = 'E';
+                this.ExternalDataSourceId = externalDataSourceId;
+            }
+            when SOCIALNETWORK {
+                this.contentLocation = 'L';
+            }
+            when else {
+                this.contentLocation = 'S';
+            }
+        }
+    }
+}
